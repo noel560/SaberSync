@@ -1,0 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Playwrite+IN:wght@100..400&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import "tailwindcss";
+
+*{
+    font-family: "Ubuntu Mono", Arial;
+    font-weight: 400; /* 400 / 700 */
+    font-style: normal;
+}
