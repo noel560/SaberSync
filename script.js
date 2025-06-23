@@ -30,20 +30,21 @@ document.querySelector("button").addEventListener("click", async () => {
             body: formData,
         });
 
-        const text = await response.text();
-        console.log("📦 Raw response text:", text);
+        console.log("🔁 Raw Response:", response);
 
         if (!response.ok) {
-            throw new Error(`Szerver válasz: ${response.status} – ${text}`);
+            const errorText = await response.text();
+            throw new Error(`Szerver válasz: ${response.status} – ${errorText}`);
         }
 
-        const result = JSON.parse(text);
+        const result = await response.json();
         console.log("✅ JSON result:", result);
         alert("Files uploaded and processed!");
 
     } catch (err) {
         console.error("❌ Hiba:", err);
-        alert("An error occurred while uploading:\n" + err.message);
+        alert("An error occurred while uploading:\n" + (err.message || err));
     }
+
 
 });

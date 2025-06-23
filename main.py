@@ -64,11 +64,17 @@ async def upload_files(
             difficulties=json.loads(difficulties)
         )
 
-        return {
-            "message": "Map generated!",
-            "map_folder": map_folder
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Map generated!",
+                "map_folder": map_folder
+            }
+        )
     
     except Exception as e:
         print("💥 ERROR:", str(e))
-        raise
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+    )
