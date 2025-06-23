@@ -1,11 +1,12 @@
 from fastapi import FastAPI, File, UploadFile, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
 import librosa
 import soundfile as sf
 import json
+import zipfile
 
 from audio_processing import process_audio
 from map_generator import create_map_folder
@@ -64,13 +65,15 @@ async def upload_files(
             difficulties=json.loads(difficulties)
         )
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "message": "Map generated!",
-                "map_folder": map_folder
-            }
-        )
+        zip_path = f"{map_folder}.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            for root, dirs, files in os.walk(map_folder):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, map_folder)
+                    zipf.write(file_path, arcname)
+
+        return FileResponse(zip_path, filename=os.path.basename(zip_path), media_type='application/zip')
     
     except Exception as e:
         print("💥 ERROR:", str(e))

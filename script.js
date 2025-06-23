@@ -34,12 +34,17 @@ document.querySelector("button").addEventListener("click", async () => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Szerver válasz: ${response.status} – ${errorText}`);
+            throw new Error(`Server response: ${response.status} – ${errorText}`);
         }
 
-        const result = await response.json();
-        console.log("✅ JSON result:", result);
-        alert("Files uploaded and processed!");
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${songName}_beatmap.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
 
     } catch (err) {
         console.error("❌ Hiba:", err);
