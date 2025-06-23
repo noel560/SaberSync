@@ -3,6 +3,7 @@ import json
 import shutil
 import uuid
 import librosa
+import random
 
 difficulty_density = {
     "Easy": 0.3,
@@ -14,35 +15,80 @@ difficulty_density = {
 
 def generate_notes(audio_path: str, bpm: int, difficulty: str):
     y, sr = librosa.load(audio_path, sr=None)
-    onset_frames = librosa.onset.onset_detect(y=y, sr=sr)
-    onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+    tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+    beat_times = librosa.frames_to_time(beat_frames, sr=sr)
 
-    # Szűrés
-    filtered_onsets = []
-    min_interval = 0.25  # seconds
-    last_time = 0
-    for t in onset_times:
-        if t - last_time >= min_interval:
-            filtered_onsets.append(t)
-            last_time = t
+    # Nehézségi szint alapján szűrés
+    difficulty_multipliers = {
+        "Easy": 0.25,
+        "Normal": 0.5,
+        "Hard": 0.75,
+        "Expert": 1.0,
+        "ExpertPlus": 1.2,
+    }
 
-    # Sűrűség alapján ritkítás
-    density = difficulty_density.get(difficulty, 0.5)
-    filtered_onsets = filtered_onsets[::int(1 / density) or 1]
+    density = difficulty_multipliers.get(difficulty, 1.0)
+    beat_times = beat_times[::max(1, int(1 / density))]
 
-    # Note gen
+    # Cut directionok
+    easy_dirs = [1, 2, 3]  # csak alap vágások
+    all_dirs = list(range(0, 9))
+
+    # Jegy pozíciók
+    valid_layers = {
+        "Easy": [1],
+        "Normal": [1],
+        "Hard": [1, 2],
+        "Expert": [0, 1, 2],
+        "ExpertPlus": [0, 1, 2],
+    }
+
+    valid_columns = {
+        "Easy": [1, 2],
+        "Normal": [0, 1, 2, 3],
+        "Hard": [0, 1, 2, 3],
+        "Expert": [0, 1, 2, 3],
+        "ExpertPlus": [0, 1, 2, 3],
+    }
+
+    layers = valid_layers.get(difficulty, [1])
+    columns = valid_columns.get(difficulty, [0, 1, 2, 3])
+    directions = easy_dirs if difficulty in ["Easy", "Normal"] else all_dirs
+
     notes = []
-    for idx, time in enumerate(filtered_onsets):
-        beat_time = time * (bpm / 60)
-        notes.append({
-            "_time": round(beat_time, 3),
-            "_lineIndex": idx % 4,
-            "_lineLayer": (idx // 4) % 3,
-            "_type": 0 if idx % 2 == 0 else 1,
-            "_cutDirection": (idx % 8)  # Váltogatja a vágás irányát
-        })
+    last_dir = {0: None, 1: None}
 
-    return notes
+    for idx, time in enumerate(beat_times):
+        beat_time = time * (bpm / 60)
+        hand = idx % 2  # 0 = bal, 1 = jobb
+        dir_choices = [d for d in directions if d != last_dir[hand]]
+        cut_direction = random.choice(dir_choices)
+        last_dir[hand] = cut_direction
+
+        note = {
+            "_time": round(beat_time, 3),
+            "_lineIndex": random.choice(columns),
+            "_lineLayer": random.choice(layers),
+            "_type": hand,  # 0 = bal, 1 = jobb
+            "_cutDirection": cut_direction
+        }
+        notes.append(note)
+
+        # ExpertPlus → néha dupla jegy
+        if difficulty == "ExpertPlus" and random.random() < 0.3:
+            other_hand = 1 - hand
+            dir2 = random.choice([d for d in directions if d != last_dir[other_hand]])
+            last_dir[other_hand] = dir2
+            note2 = {
+                "_time": round(beat_time, 3),
+                "_lineIndex": random.choice(columns),
+                "_lineLayer": random.choice(layers),
+                "_type": other_hand,
+                "_cutDirection": dir2
+            }
+            notes.append(note2)
+
+    return sorted(notes, key=lambda n: n["_time"])
 
 def create_map_folder(
     song_name: str,
@@ -95,20 +141,23 @@ def create_map_folder(
         with open(os.path.join(map_dir, beatmap_filename), "w", encoding="utf-8") as f:
             json.dump(note_data, f, indent=4)
 
+        speed_by_difficulty = {
+            "Easy": 10,
+            "Normal": 12,
+            "Hard": 14,
+            "Expert": 16,
+            "ExpertPlus": 18
+        }
+
         info_data["_difficultyBeatmapSets"][0]["_difficultyBeatmaps"].append({
             "_difficulty": diff,
             "_beatmapFilename": beatmap_filename,
-            "_noteJumpMovementSpeed": 10,
+            "_noteJumpMovementSpeed": speed_by_difficulty.get(diff, 14),
             "_noteJumpStartBeatOffset": 0
         })
 
     # Save Info.dat
     with open(os.path.join(map_dir, "Info.dat"), "w", encoding="utf-8") as f:
         json.dump(info_data, f, indent=4)
-
-    # Create empty difficulty files
-    #for diff in difficulties:
-    #    with open(os.path.join(map_dir, f"{diff}.dat"), "w", encoding="utf-8") as f:
-    #        json.dump({"_notes": [], "_obstacles": [], "_events": []}, f)
 
     return map_dir
