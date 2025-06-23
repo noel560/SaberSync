@@ -23,7 +23,7 @@ app.add_middleware(
 def detect_bpm(audio_path):
     y, sr = librosa.load(audio_path, sr=None)
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-    return round(tempo)
+    return round(float(tempo))
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -65,7 +65,7 @@ async def upload_files(
         )
 
         return {
-            "message": "Map generálva!",
+            "message": "Map generated!",
             "map_folder": map_folder
         }
     
