@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
@@ -31,6 +31,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.post("/upload")
 async def upload_files(
+    background_tasks: BackgroundTasks,
     song_name: str = Form(...),
     song_author: str = Form(...),
     audio: UploadFile = File(...),
@@ -65,15 +66,30 @@ async def upload_files(
             difficulties=json.loads(difficulties)
         )
 
-        zip_path = f"{map_folder}.zip"
-        with zipfile.ZipFile(zip_path, 'w') as zipf:
-            for root, dirs, files in os.walk(map_folder):
+        zip_filename = f"{map_folder}.zip"
+        with zipfile.ZipFile(zip_filename, 'w') as zipf:
+            for root, _, files in os.walk(map_folder):
                 for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, map_folder)
-                    zipf.write(file_path, arcname)
+                    filepath = os.path.join(root, file)
+                    arcname = os.path.relpath(filepath, map_folder)
+                    zipf.write(filepath, arcname)
 
-        return FileResponse(zip_path, filename=os.path.basename(zip_path), media_type='application/zip')
+        #return FileResponse(zip_filename, filename=os.path.basename(zip_filename), media_type='application/zip')
+        response = FileResponse(zip_filename, media_type='application/zip', filename=os.path.basename(zip_filename))
+
+        def cleanup():
+            try:
+                os.remove(audio_path)
+                os.remove(cover_path)
+                shutil.rmtree(map_folder)
+                os.remove(zip_filename)
+                print("🧹 Cleanup successful!")
+            except Exception as e:
+                print(f"❌ Cleanup failed: {e}")
+
+        background_tasks.add_task(cleanup)
+
+        return response
     
     except Exception as e:
         print("💥 ERROR:", str(e))

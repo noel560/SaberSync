@@ -30,7 +30,7 @@ document.querySelector("button").addEventListener("click", async () => {
             body: formData,
         });
 
-        console.log("🔁 Raw Response:", response);
+        //console.log("🔁 Raw Response:", response);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -41,7 +41,7 @@ document.querySelector("button").addEventListener("click", async () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${songName}_beatmap.zip`;
+        a.download = `${songName}_map.zip`;
         document.body.appendChild(a);
         a.click();
         a.remove();
