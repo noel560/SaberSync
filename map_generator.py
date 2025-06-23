@@ -4,23 +4,44 @@ import shutil
 import uuid
 import librosa
 
-def generate_notes(audio_path: str, bpm: int):
+difficulty_density = {
+    "Easy": 0.3,
+    "Normal": 0.5,
+    "Hard": 0.7,
+    "Expert": 1.0,
+    "ExpertPlus": 1.2
+}
+
+def generate_notes(audio_path: str, bpm: int, difficulty: str):
     y, sr = librosa.load(audio_path, sr=None)
     onset_frames = librosa.onset.onset_detect(y=y, sr=sr)
     onset_times = librosa.frames_to_time(onset_frames, sr=sr)
 
+    # Szűrés
+    filtered_onsets = []
+    min_interval = 0.25  # seconds
+    last_time = 0
+    for t in onset_times:
+        if t - last_time >= min_interval:
+            filtered_onsets.append(t)
+            last_time = t
+
+    # Sűrűség alapján ritkítás
+    density = difficulty_density.get(difficulty, 0.5)
+    filtered_onsets = filtered_onsets[::int(1 / density) or 1]
+
+    # Note gen
     notes = []
-    for idx, time in enumerate(onset_times):
+    for idx, time in enumerate(filtered_onsets):
         beat_time = time * (bpm / 60)
-        note = {
+        notes.append({
             "_time": round(beat_time, 3),
-            "_lineIndex": idx % 4,         # váltakozó oszlop (0–3)
-            "_lineLayer": (idx // 4) % 3,  # váltakozó sor (0–2)
-            "_type": 0 if idx % 2 == 0 else 1,  # váltogatja a kezeket
-            "_cutDirection": 1  # lefelé vágás
-        }
-        notes.append(note)
-    
+            "_lineIndex": idx % 4,
+            "_lineLayer": (idx // 4) % 3,
+            "_type": 0 if idx % 2 == 0 else 1,
+            "_cutDirection": (idx % 8)  # Váltogatja a vágás irányát
+        })
+
     return notes
 
 def create_map_folder(
@@ -65,7 +86,7 @@ def create_map_folder(
 
     for diff in difficulties:
         note_data = {
-            "_notes": generate_notes(audio_path, bpm),
+            "_notes": generate_notes(audio_path, bpm, diff),
             "_obstacles": [],
             "_events": []
         }
